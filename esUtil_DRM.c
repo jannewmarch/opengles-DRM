@@ -394,7 +394,12 @@ out:
 	return true;
 }
 
-struct egl * init_egl(const struct gbm *gbm, int samples)
+EGLNativeWindowType JNwindow;
+EGLDisplay JNdisplay;
+EGLSurface JNsurface;
+EGLContext JNcontext;
+
+struct egl * init_egl(ESContext *esContext, const struct gbm *gbm, int samples)
 {
         static struct egl static_egl;
         struct egl* egl = &static_egl;
@@ -413,7 +418,7 @@ struct egl * init_egl(const struct gbm *gbm, int samples)
 		EGL_BLUE_SIZE, 1,
 		EGL_ALPHA_SIZE, 0,
 		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-		// JNEGL_SAMPLES, samples,
+		// JN EGL_SAMPLES, samples,
 		EGL_NONE
 	};
 	const char *egl_exts_client, *egl_exts_dpy, *gl_exts;
@@ -441,7 +446,10 @@ struct egl * init_egl(const struct gbm *gbm, int samples)
 	} else {
 		egl->display = eglGetDisplay((void *)gbm->dev);
 	}
-
+	JNdisplay = egl->display;
+	esContext->eglDisplay = egl->display;
+	// return egl; // JN break out before eglInit etc
+	
 	if (!eglInitialize(egl->display, &major, &minor)) {
 		printf("failed to initialize\n");
 		return NULL;
@@ -487,14 +495,22 @@ struct egl * init_egl(const struct gbm *gbm, int samples)
 		printf("failed to create context\n");
 		return NULL;
 	}
-
+	JNcontext = egl->context;
+	esContext->eglContext = egl->context;
+	
+	JNwindow = (EGLNativeWindowType) gbm-> surface;
+	
 	egl->surface = eglCreateWindowSurface(egl->display, egl->config,
 			(EGLNativeWindowType)gbm->surface, NULL);
+	JNsurface = egl->surface;
+	esContext->eglSurface = egl->surface;
+	
 	if (egl->surface == EGL_NO_SURFACE) {
 		printf("failed to create egl surface\n");
 		return NULL;
 	}
-
+	printf("Created window surface\n"); // JN
+	
 	/* connect the context to the surface */
 	eglMakeCurrent(egl->display, egl->surface, egl->surface, egl->context);
 
@@ -529,7 +545,7 @@ const struct drm * init_drm_legacy(const char *device, const char *mode_str, uns
                 printf("Isn't legacy master");
 
 
-	//drm_static.run = legacy_run;
+	// drm_static.run = legacy_run;
 
 	return &drm_static;
 }
@@ -543,9 +559,15 @@ static const struct egl *egl;
 static const struct gbm *gbm;
 static const struct drm *drm;
 
-
-int main(int argc, char *argv[])
+///
+//  WinCreate()
+//
+//      This function initialized the native X11 display and window for EGL
+//
+EGLBoolean WinCreate(ESContext *esContext, const char *title)
 {
+  //int main(int argc, char *argv[])
+  //{
 	const char *device = NULL;
 	const char *video = NULL;
 	char mode_str[DRM_DISPLAY_MODE_LEN] = "";
@@ -561,7 +583,7 @@ int main(int argc, char *argv[])
 
 	if (atomic)
 	  //drm = init_drm_atomic(device, mode_str, vrefresh);
-	  1;
+	  1; // JN
 	else
 	        // drm = init_drm_legacy(device, mode_str, vrefresh);
 	        drm = init_drm_legacy(device, mode_str, vrefresh);
@@ -576,8 +598,9 @@ int main(int argc, char *argv[])
 		printf("failed to initialize GBM\n");
 		return -1;
 	}
-
-	egl = init_egl(gbm, 0); // JN lose 0 later
+	esContext->platformData = (void *) gbm;
+	
+	egl = init_egl(esContext, gbm, 0); // JN lose 0 later
 	/*
 	if (mode == SMOOTH)
 		egl = init_cube_smooth(gbm, samples);
@@ -599,6 +622,13 @@ int main(int argc, char *argv[])
 
 	return drm->run(gbm, egl);
 	*/
+
+	//esContext->eglNativeWindow = (EGLNativeWindowType) win;
+	//esContext->eglNativeDisplay = (EGLNativeDisplayType) x_display;
+	//esContext->eglNativeWindow = (EGLNativeWindowType) gbm->surface;
+	esContext->eglNativeWindow = JNwindow;
+	esContext->eglNativeDisplay = (EGLNativeDisplayType) gbm->dev;
+	return EGL_TRUE;
 }
 
 
@@ -626,13 +656,7 @@ static Atom s_wmDeleteMessage;
 //
 //
 
-///
-//  WinCreate()
-//
-//      This function initialized the native X11 display and window for EGL
-//
-EGLBoolean WinCreate(ESContext *esContext, const char *title)
-{
+
   /*
     Window root;
     XSetWindowAttributes swa;
@@ -698,7 +722,7 @@ EGLBoolean WinCreate(ESContext *esContext, const char *title)
     esContext->eglNativeDisplay = (EGLNativeDisplayType) x_display;
     return EGL_TRUE;
   */
-}
+// }
 
 ///
 //  userInterrupt()
@@ -736,8 +760,97 @@ GLboolean userInterrupt(ESContext *esContext)
     }
     return userinterrupt;
   */
+  return GL_FALSE;
 }
 
+// from drm-common.c
+static void
+drm_fb_destroy_callback(struct gbm_bo *bo, void *data)
+{
+	int drm_fd = gbm_device_get_fd(gbm_bo_get_device(bo));
+	struct drm_fb *fb = data;
+
+	if (fb->fb_id)
+		drmModeRmFB(drm_fd, fb->fb_id);
+
+	free(fb);
+}
+
+struct drm_fb * drm_fb_get_from_bo(struct gbm_bo *bo)
+{
+	int drm_fd = gbm_device_get_fd(gbm_bo_get_device(bo));
+	struct drm_fb *fb = gbm_bo_get_user_data(bo);
+	uint32_t width, height, format,
+		 strides[4] = {0}, handles[4] = {0},
+		 offsets[4] = {0}, flags = 0;
+	int ret = -1;
+
+	if (fb)
+		return fb;
+
+	fb = calloc(1, sizeof *fb);
+	fb->bo = bo;
+
+	width = gbm_bo_get_width(bo);
+	height = gbm_bo_get_height(bo);
+	format = gbm_bo_get_format(bo);
+
+	if (gbm_bo_get_modifier && gbm_bo_get_plane_count &&
+	    gbm_bo_get_stride_for_plane && gbm_bo_get_offset) {
+
+		uint64_t modifiers[4] = {0};
+		modifiers[0] = gbm_bo_get_modifier(bo);
+		const int num_planes = gbm_bo_get_plane_count(bo);
+		for (int i = 0; i < num_planes; i++) {
+			strides[i] = gbm_bo_get_stride_for_plane(bo, i);
+			handles[i] = gbm_bo_get_handle(bo).u32;
+			offsets[i] = gbm_bo_get_offset(bo, i);
+			modifiers[i] = modifiers[0];
+		}
+
+		if (modifiers[0]) {
+			flags = DRM_MODE_FB_MODIFIERS;
+			printf("Using modifier % PRIx64 \n", modifiers[0]);
+		}
+
+		ret = drmModeAddFB2WithModifiers(drm_fd, width, height,
+				format, handles, strides, offsets,
+				modifiers, &fb->fb_id, flags);
+	}
+
+	if (ret) {
+		if (flags)
+			fprintf(stderr, "Modifiers failed!\n");
+
+		memcpy(handles, (uint32_t [4]){gbm_bo_get_handle(bo).u32,0,0,0}, 16);
+		memcpy(strides, (uint32_t [4]){gbm_bo_get_stride(bo),0,0,0}, 16);
+		memset(offsets, 0, 16);
+		ret = drmModeAddFB2(drm_fd, width, height, format,
+				handles, strides, offsets, &fb->fb_id, 0);
+	}
+
+	if (ret) {
+		printf("failed to create fb: %s\n", strerror(errno));
+		free(fb);
+		return NULL;
+	}
+
+	gbm_bo_set_user_data(bo, fb, drm_fb_destroy_callback);
+
+	return fb;
+}
+
+// from drm-legacy.c
+
+static void page_flip_handler(int fd, unsigned int frame,
+		  unsigned int sec, unsigned int usec, void *data)
+{
+	/* suppress 'unused parameter' warnings */
+	(void)fd, (void)frame, (void)sec, (void)usec;
+
+	int *waiting_for_flip = data;
+	*waiting_for_flip = 0;
+}
 ///
 //  WinLoop()
 //
@@ -745,14 +858,97 @@ GLboolean userInterrupt(ESContext *esContext)
 //
 void WinLoop ( ESContext *esContext )
 {
+  // from drm-legacy.c, legacy-run()
 
+  struct gbm *gbm = (struct gbm *) esContext->platformData;
+  
+  fd_set fds;
+  drmEventContext evctx = {
+			   .version = 2,
+			   .page_flip_handler = page_flip_handler,
+  };
+  struct gbm_bo *bo;
+  struct drm_fb *fb;
+  uint32_t i = 0;
+  int ret;
+  
+  eglSwapBuffers(esContext->eglDisplay, esContext->eglSurface);
+  bo = gbm_surface_lock_front_buffer(gbm->surface);
+  fb = drm_fb_get_from_bo(bo);
+  if (!fb) {
+    fprintf(stderr, "Failed to get a new framebuffer BO\n");
+    return;
+  }
+  
+  /* set mode: */
+  ret = drmModeSetCrtc(drm_static.fd, drm_static.crtc_id, fb->fb_id, 0, 0,
+		       &drm_static.connector_id, 1, drm_static.mode);
+  if (ret) {
+    printf("failed to set mode: %s\n", strerror(errno));
+    return;
+  }
+  
+  while (1) {
+    struct gbm_bo *next_bo;
+    int waiting_for_flip = 1;
+    
+    if (esContext->drawFunc != NULL)
+            esContext->drawFunc(esContext); // egl->draw(i++);
+    
+    eglSwapBuffers(esContext->eglDisplay, esContext->eglSurface);
+    next_bo = gbm_surface_lock_front_buffer(gbm->surface);
+    fb = drm_fb_get_from_bo(next_bo);
+    if (!fb) {
+      fprintf(stderr, "Failed to get a new framebuffer BO\n");
+      return;
+    }
+    
+    /*
+     * Here you could also update drm plane layers if you want
+     * hw composition
+     */
+    
+    ret = drmModePageFlip(drm_static.fd, drm_static.crtc_id, fb->fb_id,
+			  DRM_MODE_PAGE_FLIP_EVENT, &waiting_for_flip);
+    if (ret) {
+      printf("failed to queue page flip: %s\n", strerror(errno));
+      return;
+    }
+    
+    while (waiting_for_flip) {
+      FD_ZERO(&fds);
+      FD_SET(0, &fds);
+      FD_SET(drm_static.fd, &fds);
+      
+      ret = select(drm_static.fd + 1, &fds, NULL, NULL, NULL);
+      if (ret < 0) {
+	printf("select err: %s\n", strerror(errno));
+	return;
+      } else if (ret == 0) {
+	printf("select timeout!\n");
+	return;
+      } else if (FD_ISSET(0, &fds)) {
+	printf("user interrupted!\n");
+	return;
+      }
+      drmHandleEvent(drm_static.fd, &evctx);
+    }
+    
+    /* release last buffer to render on again: */
+    gbm_surface_release_buffer(gbm->surface, bo);
+    bo = next_bo;
+  }
+  
+
+  // original stuff
+#if 0
   glClearColor(0.5, 0.5, 0.5, 1.0);
   glClear(GL_COLOR_BUFFER_BIT);
 
 
-  drm->run(gbm, egl);
+  //drm->run(gbm, egl);
    
-  /*
+  
     struct timeval t1, t2;
     struct timezone tz;
     float deltatime;
@@ -772,7 +968,7 @@ void WinLoop ( ESContext *esContext )
 
         eglSwapBuffers(esContext->eglDisplay, esContext->eglSurface);        
     }
-  */
+#endif  // 0
 }
 
 ///
@@ -786,7 +982,7 @@ extern int esMain( ESContext *esContext );
 //
 //      Main entrypoint for application
 //
-/*
+
 int main ( int argc, char *argv[] )
 {
    ESContext esContext;
@@ -807,4 +1003,4 @@ int main ( int argc, char *argv[] )
 
    return 0;
 }
-*/
+
