@@ -394,11 +394,6 @@ out:
 	return true;
 }
 
-EGLNativeWindowType JNwindow;
-EGLDisplay JNdisplay;
-EGLSurface JNsurface;
-EGLContext JNcontext;
-
 struct egl * init_egl(ESContext *esContext, const struct gbm *gbm, int samples)
 {
         static struct egl static_egl;
@@ -440,15 +435,14 @@ struct egl * init_egl(ESContext *esContext, const struct gbm *gbm, int samples)
 	egl_exts_client = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
 	get_proc_client(EGL_EXT_platform_base, eglGetPlatformDisplayEXT);
 
+	// Ensure we get DRM platform, and not say X11 or Wayland
 	if (egl->eglGetPlatformDisplayEXT) {
 		egl->display = egl->eglGetPlatformDisplayEXT(EGL_PLATFORM_GBM_KHR,
 				gbm->dev, NULL);
 	} else {
 		egl->display = eglGetDisplay((void *)gbm->dev);
 	}
-	JNdisplay = egl->display;
 	esContext->eglDisplay = egl->display;
-	// return egl; // JN break out before eglInit etc
 	
 	if (!eglInitialize(egl->display, &major, &minor)) {
 		printf("failed to initialize\n");
@@ -495,21 +489,16 @@ struct egl * init_egl(ESContext *esContext, const struct gbm *gbm, int samples)
 		printf("failed to create context\n");
 		return NULL;
 	}
-	JNcontext = egl->context;
 	esContext->eglContext = egl->context;
-	
-	JNwindow = (EGLNativeWindowType) gbm-> surface;
 	
 	egl->surface = eglCreateWindowSurface(egl->display, egl->config,
 			(EGLNativeWindowType)gbm->surface, NULL);
-	JNsurface = egl->surface;
 	esContext->eglSurface = egl->surface;
 	
 	if (egl->surface == EGL_NO_SURFACE) {
 		printf("failed to create egl surface\n");
 		return NULL;
 	}
-	printf("Created window surface\n"); // JN
 	
 	/* connect the context to the surface */
 	eglMakeCurrent(egl->display, egl->surface, egl->surface, egl->context);
@@ -583,9 +572,8 @@ EGLBoolean WinCreate(ESContext *esContext, const char *title)
 
 	if (atomic)
 	  //drm = init_drm_atomic(device, mode_str, vrefresh);
-	  1; // JN
+	  1; // JN - don't know what atomic does, ignore for now
 	else
-	        // drm = init_drm_legacy(device, mode_str, vrefresh);
 	        drm = init_drm_legacy(device, mode_str, vrefresh);
 	if (!drm) {
 		printf("failed to initialize %s DRM\n", atomic ? "atomic" : "legacy");
@@ -601,47 +589,13 @@ EGLBoolean WinCreate(ESContext *esContext, const char *title)
 	esContext->platformData = (void *) gbm;
 	
 	egl = init_egl(esContext, gbm, 0); // JN lose 0 later
-	/*
-	if (mode == SMOOTH)
-		egl = init_cube_smooth(gbm, samples);
-	else if (mode == VIDEO)
-		egl = init_cube_video(gbm, video, samples);
-	else
-		egl = init_cube_tex(gbm, mode, samples);
 
-	if (!egl) {
-		printf("failed to initialize EGL\n");
-		return -1;
-	}
-	*/
-	
-	/* clear the color buffer */
-	/*
-	glClearColor(0.5, 0.5, 0.5, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT);
-
-	return drm->run(gbm, egl);
-	*/
-
-	//esContext->eglNativeWindow = (EGLNativeWindowType) win;
-	//esContext->eglNativeDisplay = (EGLNativeDisplayType) x_display;
-	//esContext->eglNativeWindow = (EGLNativeWindowType) gbm->surface;
-	esContext->eglNativeWindow = JNwindow;
 	esContext->eglNativeDisplay = (EGLNativeDisplayType) gbm->dev;
 	return EGL_TRUE;
 }
 
 
 
-/*
-#include  <X11/Xlib.h>
-#include  <X11/Xatom.h>
-#include  <X11/Xutil.h>
-
-// X11 related local variables
-static Display *x_display = NULL;
-static Atom s_wmDeleteMessage;
-*/
 
 //////////////////////////////////////////////////////////////////
 //
@@ -656,74 +610,6 @@ static Atom s_wmDeleteMessage;
 //
 //
 
-
-  /*
-    Window root;
-    XSetWindowAttributes swa;
-    XSetWindowAttributes  xattr;
-    Atom wm_state;
-    XWMHints hints;
-    XEvent xev;
-    EGLConfig ecfg;
-    EGLint num_config;
-    Window win;
-
-
-     * X11 native display initialization
-
-
-    x_display = XOpenDisplay(NULL);
-    if ( x_display == NULL )
-    {
-        return EGL_FALSE;
-    }
-
-    root = DefaultRootWindow(x_display);
-
-    swa.event_mask  =  ExposureMask | PointerMotionMask | KeyPressMask;
-    win = XCreateWindow(
-               x_display, root,
-               0, 0, esContext->width, esContext->height, 0,
-               CopyFromParent, InputOutput,
-               CopyFromParent, CWEventMask,
-               &swa );
-    s_wmDeleteMessage = XInternAtom(x_display, "WM_DELETE_WINDOW", False);
-    XSetWMProtocols(x_display, win, &s_wmDeleteMessage, 1);
-
-    xattr.override_redirect = FALSE;
-    XChangeWindowAttributes ( x_display, win, CWOverrideRedirect, &xattr );
-
-    hints.input = TRUE;
-    hints.flags = InputHint;
-    XSetWMHints(x_display, win, &hints);
-
-    // make the window visible on the screen
-    XMapWindow (x_display, win);
-    XStoreName (x_display, win, title);
-
-    // get identifiers for the provided atom name strings
-    wm_state = XInternAtom (x_display, "_NET_WM_STATE", FALSE);
-
-    memset ( &xev, 0, sizeof(xev) );
-    xev.type                 = ClientMessage;
-    xev.xclient.window       = win;
-    xev.xclient.message_type = wm_state;
-    xev.xclient.format       = 32;
-    xev.xclient.data.l[0]    = 1;
-    xev.xclient.data.l[1]    = FALSE;
-    XSendEvent (
-       x_display,
-       DefaultRootWindow ( x_display ),
-       FALSE,
-       SubstructureNotifyMask,
-       &xev );
-
-    esContext->eglNativeWindow = (EGLNativeWindowType) win;
-    esContext->eglNativeDisplay = (EGLNativeDisplayType) x_display;
-    return EGL_TRUE;
-  */
-// }
-
 ///
 //  userInterrupt()
 //
@@ -731,7 +617,7 @@ static Atom s_wmDeleteMessage;
 //      window close action.
 //
 GLboolean userInterrupt(ESContext *esContext)
-{
+{ // FIX ME - JN
   /*
     XEvent xev;
     KeySym key;
