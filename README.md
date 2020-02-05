@@ -46,7 +46,7 @@ build directory is
 
 or for debugging code,
 
-   cmake -D UseDRM=1  -DCMAKE_BUILD_TYPE=Debug ...
+    cmake -D UseDRM=1  -DCMAKE_BUILD_TYPE=Debug ...
 
 followed by
 
@@ -59,11 +59,11 @@ X11.
 
 The programs in Chapters 2, 6, 9, 10, 11 seem to work okay.
 
-The programs involving changing images work, but move VERY fast.
+The programs involving changing images work, but change VERY fast.
 I'm not sure if this is right or not. They include
 Chapter 7 Instancing,
 Chapter 8 SimpleVertexShader
-and all program in Chapter 14 except TerraRendering.
+and all programs in Chapter 14 except TerraRendering.
 
 ## Acknowledgement
 
