@@ -140,13 +140,6 @@ EGLint GetContextRenderableType ( EGLDisplay eglDisplay )
 //          ES_WINDOW_MULTISAMPLE - specifies that a multi-sample buffer should be created
 //
 
-#define JN 0
-#if JN
-extern EGLDisplay JNdisplay;
-extern EGLSurface JNsurface;
-extern EGLContext JNcontext;
-#endif
-
 GLboolean ESUTIL_API esCreateWindow ( ESContext *esContext, const char *title, GLint width, GLint height, GLuint flags )
 {
 #ifndef __APPLE__
@@ -174,21 +167,14 @@ GLboolean ESUTIL_API esCreateWindow ( ESContext *esContext, const char *title, G
    {
       return GL_FALSE;
    }
-#if JN
-   esContext->eglDisplay = JNdisplay;
-   esContext->eglSurface = JNsurface;
-   esContext->eglContext = JNcontext;
 
-#else
    // added NULL check - could be set before - JN
    if (esContext->eglDisplay == NULL)
      esContext->eglDisplay = eglGetDisplay( esContext->eglNativeDisplay );
    //JN esContext->eglDisplay = eglGetPlatformDisplay(EGL_PLATFORM_GBM_KHR,
    //				 esContext->eglNativeDisplay,
    //						 NULL);
-#if JN
-   esContext->eglDisplay = JNdisplay;
-#endif
+
    if ( esContext->eglDisplay == EGL_NO_DISPLAY )
    {
       return GL_FALSE;
@@ -200,7 +186,18 @@ GLboolean ESUTIL_API esCreateWindow ( ESContext *esContext, const char *title, G
        {
 	 return GL_FALSE;
        }
-     
+
+     printf("Using display %p with EGL version %d.%d\n",
+	    esContext->eglDisplay, majorVersion, minorVersion);
+
+    printf("===================================\n");
+    printf("EGL information:\n");
+    printf("  version: \"%s\"\n", eglQueryString(esContext->eglDisplay, EGL_VERSION));
+    printf("  vendor: \"%s\"\n", eglQueryString(esContext->eglDisplay, EGL_VENDOR));
+    //printf("  client extensions: \"%s\"\n", egl_exts_client);
+    //printf("  display extensions: \"%s\"\n", egl_exts_dpy);
+    printf("===================================\n");
+
      {
        EGLint numConfigs = 0;
        EGLint attribList[] =
@@ -244,9 +241,7 @@ GLboolean ESUTIL_API esCreateWindow ( ESContext *esContext, const char *title, G
      esContext->eglSurface = eglCreateWindowSurface ( esContext->eglDisplay, config, 
 						      esContext->eglNativeWindow, NULL );
    }
-#if JN
-   esContext->eglSurface = JNsurface;
-#endif
+
    if ( esContext->eglSurface == EGL_NO_SURFACE )
    {
       return GL_FALSE;
@@ -258,9 +253,7 @@ GLboolean ESUTIL_API esCreateWindow ( ESContext *esContext, const char *title, G
      esContext->eglContext = eglCreateContext ( esContext->eglDisplay, config, 
 						EGL_NO_CONTEXT, contextAttribs );
    }
-#if JN
-   esContext->eglContext = JNcontext;
-#endif
+
    if ( esContext->eglContext == EGL_NO_CONTEXT )
    {
       return GL_FALSE;
@@ -272,9 +265,16 @@ GLboolean ESUTIL_API esCreateWindow ( ESContext *esContext, const char *title, G
    {
       return GL_FALSE;
    }
+   printf("OpenGL ES information:\n");
+    printf("  version: \"%s\"\n", glGetString(GL_VERSION));
+    printf("  shading language version: \"%s\"\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
+    printf("  vendor: \"%s\"\n", glGetString(GL_VENDOR));
+    printf("  renderer: \"%s\"\n", glGetString(GL_RENDERER));
+    //printf("  extensions: \"%s\"\n", gl_exts);
+    printf("===================================\n");
+
 
 #endif // #ifndef __APPLE__
-#endif // if JN
    
    return GL_TRUE;
 }

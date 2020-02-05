@@ -44,6 +44,10 @@ build directory is
 
     cmake -DUseDRM=1 ...
 
+or for debugging code,
+
+   cmake -D UseDRM=1  -DCMAKE_BUILD_TYPE=Debug ...
+
 followed by
 
     make
@@ -53,7 +57,15 @@ followed by
 This has only been tested on the Raspberry Pi 4, running without
 X11.
 
+The programs in Chapters 2, 6, 9, 10, 11 seem to work okay.
+Chapter 7 Instancing just shows a white screen instead of lots
+of rotating shapes.
+Chapter 8 SimpleVertexShader just shows a white screen instead of a rotating
+red cube.
+Chapter 14 TerraRendering seems ok, but the other programs in that chapter show either
+a white or dark screen.
+
 ## Acknowledgement
 
 This project has borrowed most of its code from
-[link kmscube](https://gitlab.freedesktop.org/mesa/kmscube)
+[kmscube](https://gitlab.freedesktop.org/mesa/kmscube)

@@ -414,7 +414,8 @@ struct egl * init_egl(ESContext *esContext, const struct gbm *gbm, int samples)
 
 	
     static const EGLint context_attribs[] = {
-	EGL_CONTEXT_CLIENT_VERSION, 2,
+	//EGL_CONTEXT_CLIENT_VERSION, 2,
+	EGL_CONTEXT_CLIENT_VERSION, 3, // JN
 	EGL_NONE
     };
 
@@ -424,7 +425,8 @@ struct egl * init_egl(ESContext *esContext, const struct gbm *gbm, int samples)
 	EGL_GREEN_SIZE, 1,
 	EGL_BLUE_SIZE, 1,
 	EGL_ALPHA_SIZE, 0,
-	EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+	//EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+	EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR, // JN
 	// JN EGL_SAMPLES, samples,
 	EGL_NONE
     };
@@ -516,7 +518,7 @@ struct egl * init_egl(ESContext *esContext, const struct gbm *gbm, int samples)
     eglMakeCurrent(egl->display, egl->surface, egl->surface, egl->context);
 
     gl_exts = (char *) glGetString(GL_EXTENSIONS);
-    printf("OpenGL ES 2.x information:\n");
+    printf("OpenGL ES information:\n");
     printf("  version: \"%s\"\n", glGetString(GL_VERSION));
     printf("  shading language version: \"%s\"\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
     printf("  vendor: \"%s\"\n", glGetString(GL_VENDOR));
