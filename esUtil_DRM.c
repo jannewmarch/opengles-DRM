@@ -694,6 +694,10 @@ static void page_flip_handler(int fd, unsigned int frame,
 //
 void WinLoop ( ESContext *esContext )
 {
+    struct timeval t1, t2;
+    struct timezone tz;
+    float deltatime;
+
     // from drm-legacy.c, legacy-run()
 
     struct gbm *gbm = (struct gbm *) esContext->platformData;
@@ -723,11 +727,19 @@ void WinLoop ( ESContext *esContext )
 	printf("failed to set mode: %s\n", strerror(errno));
 	return;
     }
-  
+
+    gettimeofday ( &t1 , &tz );
+
     while (1) {
 	struct gbm_bo *next_bo;
 	int waiting_for_flip = 1;
-    
+
+	gettimeofday(&t2, &tz);
+        deltatime = (float)(t2.tv_sec - t1.tv_sec + (t2.tv_usec - t1.tv_usec) * 1e-6);
+
+	if (esContext->updateFunc != NULL)
+            esContext->updateFunc(esContext, deltatime);
+
 	if (esContext->drawFunc != NULL)
 	    esContext->drawFunc(esContext);
     
@@ -773,6 +785,7 @@ void WinLoop ( ESContext *esContext )
 	/* release last buffer to render on again: */
 	gbm_surface_release_buffer(gbm->surface, bo);
 	bo = next_bo;
+	sleep(1);
     }
 }
 

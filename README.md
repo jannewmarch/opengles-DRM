@@ -58,12 +58,12 @@ This has only been tested on the Raspberry Pi 4, running without
 X11.
 
 The programs in Chapters 2, 6, 9, 10, 11 seem to work okay.
-Chapter 7 Instancing just shows a white screen instead of lots
-of rotating shapes.
-Chapter 8 SimpleVertexShader just shows a white screen instead of a rotating
-red cube.
-Chapter 14 TerraRendering seems ok, but the other programs in that chapter show either
-a white or dark screen.
+
+The programs involving changing images work, but move VERY fast.
+I'm not sure if this is right or not. They include
+Chapter 7 Instancing,
+Chapter 8 SimpleVertexShader
+and all program in Chapter 14 except TerraRendering.
 
 ## Acknowledgement
 
