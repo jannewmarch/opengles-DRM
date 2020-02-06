@@ -35,18 +35,18 @@ project. The new version just adds some tests for
 the display and surface to be non-NULL before
 creating them. The DRM version will already have done that.
 
-Then create a subdirectory <X>/Common/Source/DRM/ and add the files
+Then create a subdirectory &lt;X&gt;/Common/Source/DRM/ and add the files
 esUtil_DRM.c, common.h, drm-common.h.
 
 The DRM version of libCommon.a can then be built using cmake from a
 build directory by adding the flag "-DUseDRM=1" in whatever the
 build directory is
 
-    cmake -DUseDRM=1 <X>
+    cmake -DUseDRM=1 &lt;X&gt;
 
 or for debugging code,
 
-    cmake -D UseDRM=1  -DCMAKE_BUILD_TYPE=Debug <X>
+    cmake -D UseDRM=1  -DCMAKE_BUILD_TYPE=Debug &lt;X&gt;
 
 followed by
 
