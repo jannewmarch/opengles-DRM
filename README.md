@@ -25,12 +25,12 @@ containing the files
 + esUtil_DRM.c.o
 
 It is assumed you have downloaded the program files for the book
-into directory <X>. In subdirectory <X>/Common is the file
+into directory &lt;X&gt;. In subdirectory <X>/Common is the file
 CMakeLists.txt. This needs to be replaced with the file
 CMakeLists.txt from this project. The new file just adds
 a new target for the DRM version.
 
-Also replace the file <X>/Source/esUtil.c with esUtil.c from this
+Also replace the file &lt;X&gt;/Source/esUtil.c with esUtil.c from this
 project. The new version just adds some tests for
 the display and surface to be non-NULL before
 creating them. The DRM version will already have done that.
@@ -42,11 +42,11 @@ The DRM version of libCommon.a can then be built using cmake from a
 build directory by adding the flag "-DUseDRM=1" in whatever the
 build directory is
 
-    cmake -DUseDRM=1 &lt;X&gt;
+    cmake -DUseDRM=1 <X>
 
 or for debugging code,
 
-    cmake -D UseDRM=1  -DCMAKE_BUILD_TYPE=Debug &lt;X&gt;
+    cmake -D UseDRM=1  -DCMAKE_BUILD_TYPE=Debug <X>
 
 followed by
 
