@@ -785,7 +785,6 @@ void WinLoop ( ESContext *esContext )
 	/* release last buffer to render on again: */
 	gbm_surface_release_buffer(gbm->surface, bo);
 	bo = next_bo;
-	sleep(1);
     }
 }
 
